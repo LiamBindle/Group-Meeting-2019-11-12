@@ -28,7 +28,7 @@
 
 \newcommand{\semitransp}[2][35]{\color{fg!#1}#2}
 
-\title{Group Meeting: Developing intuition for the model}
+\title{Group Meeting: Developing some intuition for GEOS-Chem}
 % \subtitle{Subtítulo}
 % \date{\today}
 \date{2019-11-12}
@@ -42,7 +42,7 @@
     \begin{table}[]
     \begin{tabular}{ll}
     \hline
-    \textbf{GEOS-Chem Classic} & main.F lineno \\ \hline
+    \textbf{GEOS-Chem Classic} & \textbf{main.F lineno}* \\ \hline
     $time \leftarrow starttime$ &  \\
     $S \leftarrow \text{\textbf{READ} restart file}$ &  700 \\
     \textbf{while} $time \neq endtime$ \textbf{do} & 870 \\
@@ -58,6 +58,7 @@
     $\quad S \leftarrow WET\_DEP(S, M, \Delta t)$ & 1719 \\
     $\quad \text{\textbf{SAVE} diagnostics}$ & 1873-2262 \\
     \textbf{end while} & 2923 \\ \hline
+    \multicolumn{2}{r}{\fontsize{4}{4}\selectfont\textit{*GEOS-Chem 12.6.1}} \\
     \end{tabular}
     \end{table}
 }
@@ -68,12 +69,14 @@
 
 \begin{frame}{Table of contents}
   \setbeamertemplate{section in toc}[sections numbered]
-  \tableofcontents[hideallsubsections]
+  \setbeamertemplate{subsection in toc}[circle]
+  \tableofcontents
 \end{frame}
 
 \section{What does GEOS-Chem actually do?}
+\subsection{Realizing the theory}
 
-\begin{frame}[fragile]{Continuity Equation}
+\begin{frame}[fragile]{Realizing the theory: the continuity equation}
     First, remember the one-box model
     \begin{figure}
         \centering
@@ -81,18 +84,21 @@
         \captionsetup{labelformat=empty}
         \caption{Adapted from \cite{jacob_introduction_1999}}
     \end{figure}
+    \pause
     More generally, CTMs solve the continuity equation
     $$
         \frac{\partial \rho_i}{\partial t} + \boldsymbol \nabla \cdot (\rho_i \boldsymbol v) = s_i
     $$
-    How is this helpful?
+    \pause
+    How does that help?
 \end{frame}
 
-\begin{frame}[fragile]{Continuity Equation: The time integral}
+\begin{frame}[fragile]{Realizing the theory: the time integral}
     The CTM's goal is to evaluate
     $$
         \rho_i(x, y, z, t) = \rho_i(x, y, z, t_0) + \int_{t_0}^{t} \frac{\partial \rho_i}{\partial t} dt
     $$
+    \pause
     \vfill
     which can be written as the sum of timesteps
     \small
@@ -101,13 +107,14 @@
     $$
 \end{frame}
 
-\begin{frame}[fragile]{Continuity Equation: Closer look at a timestep}
-    One timestep in the integral of the continuity equation is
+\begin{frame}[fragile]{Realizing the theory: a timestep}
+    A timestep in the time-integral of the continuity equation is
     $$\int_{\Delta t} \frac{\partial \rho_i}{\partial t} dt$$
     Recall the continuity equation
     $$
         \frac{\partial \rho_i}{\partial t} =   \quad \color{blue} -\boldsymbol \nabla \cdot (\rho_i \boldsymbol v) \quad \color{red} + \quad s_i
     $$
+    \pause
     \normalsize
     The integrand can be rewritten as
     \tiny
@@ -122,8 +129,9 @@
         \left[ \frac{\partial \rho_i}{\partial t} \right]_{em} + 
         \left[ \frac{\partial \rho_i}{\partial t} \right]_{dep}
     $$
+    \pause
     \normalsize
-    which gives
+    So a timestep is
     \tiny
     \begin{align*}
         \int_{\Delta t}\frac{\partial \rho_i}{\partial t} dt = 
@@ -137,7 +145,7 @@
     \end{align*}
 \end{frame}
 
-\begin{frame}[fragile]{GEOS-Chem as an Expression}
+\begin{frame}[fragile]{Realizing the theory: GEOS-Chem as an expression}
     \small
     \begin{align*}
         \rho_i(x, y, z, t_F) = \rho_i(x, y, z, t_0) + \sum_{\Delta t \in T} (
@@ -151,16 +159,18 @@
     \end{align*}
 \end{frame}
 
-\begin{frame}[fragile]{GEOS-Chem Classic in Pseudocode}
+\begin{frame}[fragile]{GEOS-Chem Classic in pseudocode}
     \gccpseudocode
 \end{frame}
 
-\section{How are the 7 processes modelled?}
+\subsection{Transport term processes}
+\frame{\sectionpage}
 
-\begin{frame}[fragile]{The 7-Processes: Advection}
+\begin{frame}[fragile]{Transport term processes: advection}
     \begin{minipage}[c]{0.5\textwidth}
         \begin{itemize}
-            \item Transport of tracers by wind (horizontal only)
+            \item Transport of tracers by wind
+            \vspace{0.3cm}
             \item GEOS-Chem uses the \textbf{TPCORE} and \textbf{FV3} advection algorithms
         \end{itemize}
             \vspace{0.5cm}
@@ -176,7 +186,7 @@
     \end{minipage} \hfill
     \begin{minipage}[c]{0.49\textwidth}
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{box-model-advection.eps}    
+        \includegraphics[width=0.9\textwidth]{box-model-advection.eps}    
     \end{center}
     \vspace{0.5cm}
     $$
@@ -185,11 +195,42 @@
     \end{minipage}
 \end{frame}
 
-\begin{frame}[fragile]{The 7-Processes: Convection}
+\begin{frame}[fragile]{Transport term processes: mixing}
+    \begin{minipage}[c]{0.39\textwidth}
+        \begin{center}
+            \includegraphics[width=0.9\textwidth]{box-model-mixing.eps}
+        \end{center}
+        \vspace{5mm}
+        \footnotesize
+        $$
+            \left[ \frac{\partial \rho_i}{\partial t} \right]_{mix} = -\frac{\partial}{\partial z} \left[-K_z \left(\frac{\partial \mu_i}{\partial z} - \gamma_c \right)\right]
+        $$
+    \end{minipage} \hfill
+    \begin{minipage}[c]{0.6\textwidth}
+        \small
+        \begin{itemize}
+            \item Contributes to vertical transport in the PBL
+            \item Flux is proportional to concentration gradient
+        \end{itemize}
+        \vspace{0.5cm}
+        Two PBL mixing schemes are available
+        \begin{itemize}
+            \item \textbf{TURBDAY}: Full PBL mixing
+            \item \textbf{VDIFF}: Non-local PBL mixing
+            \item User configures PBL mixing in \texttt{input.geos}
+            \begin{verbatim}
+  Turn on PBL Mixing?    : T
+  => Use non-local PBL?  : F
+            \end{verbatim}
+        \end{itemize}
+    \end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Transport term processes: convection}
     \begin{minipage}[c]{0.5\textwidth}
         \begin{figure}
             \centering
-            \includegraphics[width=\textwidth]{box-model-convection.eps}
+            \includegraphics[width=0.9\textwidth]{box-model-convection.eps}
             \captionsetup{labelformat=empty}
             \caption{Adapted from \cite{brasseur_modeling_2017}}
         \end{figure}
@@ -212,7 +253,10 @@
     $$
 \end{frame}
 
-\begin{frame}[fragile]{The 7-Processes: Scavenging}
+\subsection{Source term processes}
+\frame{\sectionpage}
+
+\begin{frame}[fragile]{Source term processes: scavenging}
     \begin{center}
     \includegraphics[width=0.5\textwidth]{box-model-scav.eps}
     \end{center}
@@ -223,36 +267,7 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{The 7-Processes: Mixing}
-    \begin{minipage}[c]{0.39\textwidth}
-        \begin{center}
-            \includegraphics[width=0.9\textwidth]{box-model-mixing.eps}
-        \end{center}
-        \footnotesize
-        $$
-            \left[ \frac{\partial \rho_i}{\partial t} \right]_{mix} = -\frac{\partial}{\partial z} \left[-K_z \left(\frac{\partial \mu_i}{\partial z} - \gamma_c \right)\right]
-        $$
-    \end{minipage} \hfill
-    \begin{minipage}[c]{0.6\textwidth}
-        \begin{itemize}
-            \item Contributes to vertical transport in the PBL
-            \item Flux is proportional to concentration gradient
-        \end{itemize}
-        \vspace{0.5cm}
-        Two PBL mixing schemes are available
-        \begin{itemize}
-            \item \textbf{TURBDAY}: Full PBL mixing
-            \item \textbf{VDIFF}: Non-local PBL mixing
-            \item User configures PBL mixing in \texttt{input.geos}
-            \begin{verbatim}
-  Turn on PBL Mixing?    : T
-  => Use non-local PBL?  : F
-            \end{verbatim}
-        \end{itemize}
-    \end{minipage}
-\end{frame}
-
-\begin{frame}[fragile]{The 7-Processes: Chemistry (1/2)}
+\begin{frame}[fragile]{Source term processes: chemistry (1/2)}
     \begin{itemize}
         \item Chemical production and loss of a species is handled by FlexChem (based on KPP)
         \item KPP is a utility that generates Fortran code 
@@ -272,7 +287,7 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{The 7-Processes: Chemistry (2/2)}
+\begin{frame}[fragile]{Source term processes: chemistry (2/2)}
     GC has three chemical mechanisms to choose from
     
     \small
@@ -307,7 +322,7 @@
     \end{minipage}
 \end{frame}
 
-\begin{frame}[fragile]{The 7-Processes: Emissions}
+\begin{frame}[fragile]{Source term processes: emissions}
     \begin{itemize}
         \item GC uses HEMCO to compute emissions
         \begin{itemize}
@@ -315,6 +330,7 @@
             \item Allows for temporal (e.g. day-of-week) and environmental (e.g. wind, sza, etc.) parameterizations
         \end{itemize}
         \item HEMCO is configured in \texttt{HEMCO\_Config.rc}
+        \vfill
     \end{itemize}
     \begin{minipage}[c]{0.7\textwidth}
         \includegraphics[width=\textwidth]{hemco.eps}
@@ -326,15 +342,18 @@
     \end{minipage}
 \end{frame}
 
-\begin{frame}[fragile]{The 7-Processes: Deposition}
+\begin{frame}[fragile]{Source term processes: deposition}
         \begin{minipage}[c]{0.49\textwidth}
         \small
         \begin{itemize}
-            \item \textit{Resistance-in-series} parameterization of dry deposition
-            \item Assumes deposition flux $\propto \rho_i$
-            \item $1/R$ relates deposition rate to meteorological conditions and surface properties
+            \item \textit{Resistance-in-series} parameterization
+            \vspace{0.3cm}
+            \item $1/R$ relates deposition rate to conditions and surface
+            \vspace{0.3cm}
             \item $R_A$: Turbulent transport surface layer
+            \vspace{0.3cm}
             \item $R_{B,i}$: Diffusion through quasi-laminar boundary layer
+            \vspace{0.3cm}
             \item $R_{C,i}$: Surface uptake
         \end{itemize}
     \end{minipage} \hfill
@@ -355,15 +374,20 @@
     \end{minipage}
 \end{frame}
 
-\begin{frame}[fragile]{Vertical Grid}
+\begin{frame}[fragile]{Vertical grid}
     \begin{minipage}[c]{0.5\textwidth}
     \begin{itemize}
         \item Hybrid sigma-pressure grid
+        \vspace{3mm}
         \item Bottom level follows Earth's surface
+        \vspace{3mm}
         \item TOA at 0.01 hPa (80.6 km)
+        \vspace{3mm}
         \item Same vertical grid as met data
+        \vspace{3mm}
         \begin{itemize}
             \item GEOS-FP: 72-layers
+            \vspace{3mm}
             \item MERRA-2: 47-layers
         \end{itemize}
     \end{itemize}
@@ -381,13 +405,13 @@
     \end{minipage}
 \end{frame}
 
-\begin{frame}[fragile]{Horizontal Grid}
+\begin{frame}[fragile]{Horizontal grid}
     \small
     \begin{minipage}[c]{0.5\textwidth}
         \begin{table}[]
         \begin{tabular}{lrr}
             \hline
-            \multicolumn{3}{l}{GEOS-Chem Classic} \\ 
+            \multicolumn{3}{l}{\textbf{GEOS-Chem Classic}} \\ 
             Grid & \# boxes & Scale \\ 
             \hline
             4x5$^{\circ}$ & 3,312 & 392 km \\ 
@@ -405,7 +429,7 @@
         \begin{table}[]
         \begin{tabular}{lrr}
         \hline
-            \multicolumn{3}{l}{GCHP} \\ 
+            \multicolumn{3}{l}{\textbf{GCHP}} \\ 
             Grid & \# boxes & Scale \\ 
             \hline
             C24 & 3,456 & 384 km\\ 
@@ -422,13 +446,14 @@
     \end{minipage}
 \end{frame}
 
-\begin{frame}{GEOS-Chem Classic in Pseudocode}
+\begin{frame}{GEOS-Chem Classic in pseudocode}
+    \vspace{3mm}
     \gccpseudocode
 \end{frame}
 
-\section{What is GCHP and how is it different from GC-Classic?}
+\section{GCHP and how it's different}
 
-\begin{frame}{What's GCHP and how's it different?}
+\begin{frame}{GCHP: how's it different?}
     \begin{minipage}[c]{0.39\textwidth}
         \begin{figure}
             \centering
@@ -440,42 +465,52 @@
     \begin{minipage}[c]{0.6\textwidth}
         \begin{itemize}
             \item GCHP is GEOS-Chem Classic's analog in the MAPL framework
+            \vspace{3mm}
             \item MAPL is for \textit{compartmentalizing} and \textit{coupling} Earth systems models 
+            \vspace{3mm}
             \begin{itemize}
                 \item Models are broken up into \textit{components}
+                \vspace{3mm}
                 \item Each component has a set of input and outputs
+                \vspace{3mm}
                 \item Components are automatically interconnected
+                \vspace{3mm}
                 \item Supports distributed computing
             \end{itemize}
         \end{itemize}
     \end{minipage}
 \end{frame}
 
-\begin{frame}[fragile]{GCHP in Pseudocode}
+\begin{frame}[fragile]{GCHP in pseudocode}
 
     \scriptsize
     \setlength{\tabcolsep}{20pt}
     \begin{table}[]
     \begin{tabular}{ll}
     \hline
-    \textbf{Grid-Independent GEOS-Chem (``GIGCchem'')} & gigc\_chunk\_mod.F90 lineno \\ \hline
+    \textbf{Grid-Independent GEOS-Chem (``GIGCchem'')} & \textbf{gigc\_chunk\_mod.F90 lineno}* \\ \hline
     \textbf{FUNCTION}   GIGC\_Chunk\_Run & 369 \\
+    $\quad \textbf{INPUT}\ S, M, \Delta t$ &  \\
+    $\quad \textbf{OUTPUT}\ S $ & \\
     $\quad S \leftarrow CONVECTION(S, M, \Delta t)$ & 824 \\
     $\quad S \leftarrow DRY\_DEP(S, M, \Delta t)$ & 845 \\
     $\quad S \leftarrow EMISSIONS(S, M, \Delta t)$ & 875 \\
     $\quad S \leftarrow TURB\_MIXING(S, M, \Delta t)$ & 941 \\
     $\quad S \leftarrow CHEMISTRY(S, M, \Delta t)$& 994 \\
     $\quad S \leftarrow WET\_DEP(S, M, \Delta t)$ & 1020 \\
+    
     \textbf{END FUNCTION} & 2923 \\ \hline
+    \multicolumn{2}{r}{\fontsize{4}{4}\selectfont\textit{*GEOS-Chem 12.6.1}} \\
     \end{tabular}
     \end{table}
-    \vfill
     \footnotesize
     \begin{minipage}[c]{0.6\textwidth}
         \begin{itemize}
-            \item Advection is done by GMAO's FV3 component (``GIGCdyn'')
-            \item Diagnostics are saved by the ``History'' component
-            \item External data is read-in by the ``ExtData'' component
+            \item Advection is done by GMAO's FV3 (``GIGCdyn'')
+            \vspace{0.2cm}
+            \item Diagnostics are saved by ``History''
+            \vspace{0.2cm}
+            \item External data is read-in by ``ExtData''
         \end{itemize}
     \end{minipage}
     \begin{minipage}[c]{0.39\textwidth}
@@ -490,7 +525,7 @@
     % \paragraph{Note: Without overhead, $S$ at C360 is 98 GB (55,987,200 boxes, 218 species, 8 byte float). Saving $S$ after each timestep would result in 7.1 TB of output per simulation day (20 min chemistry timestep; 2.6 PB/year).}
 \end{frame}
 
-\begin{frame}[fragile]{GEOS-Chem Classic vs. GCHP: What’s the difference?}
+\begin{frame}[fragile]{GCHP: benefits and challenges }
     \textbf{Benefits}
     \footnotesize
     \begin{itemize}
@@ -509,9 +544,10 @@
     \end{itemize}
 \end{frame}
 
-\section{My work to make GCHP easier to use}
+\subsection{Making GCHP easier to use}
+\frame{\sectionpage}
 
-\begin{frame}[fragile]{Making GCHP Easier to Build: CMake support}
+\begin{frame}[fragile]{Making GCHP easier to build: CMake support}
     \begin{minipage}[c]{0.6\textwidth}
         \footnotesize
         \begin{enumerate}
@@ -526,7 +562,7 @@
             \end{lstlisting}
             \item Configure GEOS-Chem's build
             \begin{lstlisting}[language=bash,morekeywords={mkdir,cmake,make},]
-            ~/geosfp_2x25_standard/build> cmake ..
+            ~/geosfp_2x25_standard/build> cmake /path/to/geos-chem
             \end{lstlisting}
             \item Compile GEOS-Chem
             \begin{lstlisting}[language=bash,morekeywords={mkdir,cmake,make},]
@@ -544,7 +580,7 @@
     \end{minipage}
 \end{frame}
 
-\begin{frame}[fragile]{Improving GCHP Quality Assurance: CI support}
+\begin{frame}[fragile]{Improving GCHP quality assurance: CI/CD support}
     \begin{center}
         \includegraphics[height=0.3\textheight]{pipeline.eps}
         \vfill
@@ -562,15 +598,17 @@
         \textbf{Grid} & \multicolumn{2}{c}{\textbf{What does 2-weeks of compute time get you?}} \\ 
         (global) & 1 node & 10 nodes \\ 
         \hline
-        C24 & 4 years & --- \\ 
+        C24 & 4 years* & --- \\ 
         C48 & 1 year &  10 years \\ 
         C90 & \semitransp[60]{3 months} & 3 years \\ 
         C180 & \semitransp[60]{1 month} & 8 months \\ 
         C360 & \semitransp[60]{6 days} & 2 months \\ 
         \semitransp[60]{C720} & \semitransp[60]{1-2 days} & \semitransp[60]{10-20 days} \\ \hline
-        \multicolumn{3}{r}{\fontsize{3}{3}\selectfont\textit{Assumes ideal scaling of 90 min 7-day 4x5 simulation based on timing tests by Bob Yantosca }} \\ 
+        \multicolumn{3}{r}{\fontsize{4}{4}\selectfont\textit{*Based on 32-core timing test by \cite{yantosca_timing_2018}. All other values are extrapolations assuming perfect scaling.}} \\ 
     \end{tabular}
     \end{table}
+    
+    \pause
     
     Assuming perfect scaling
     $$\text{wall time} \propto \frac{\text{boxes} \times \text{timesteps}}{\text{CPUs}}$$
@@ -581,13 +619,32 @@
 \begin{frame}[fragile]{How much resolution do we need?}
     \begin{figure}
         \centering
-        \includegraphics[width=0.8\textwidth]{species-scale.eps}
+        \includegraphics[width=0.6\textwidth]{species-scale.eps}
         \captionsetup{labelformat=empty}
-        \caption{Adapted from \cite{wallace_atmospheric_2006}}
+        \caption{Figure from \cite{wallace_atmospheric_2006} overlaid \\ with cube-sphere resolutions.}
     \end{figure}
 \end{frame}
 
-\begin{frame}[fragile]{GC-Classic Nested Simulations}
+\begin{frame}[fragile]{How much resolution do we need?}
+    \begin{minipage}[c]{0.5\textwidth}
+        \begin{figure}
+            \centering
+            \includegraphics[width=\textwidth]{easthamp.png}
+            \captionsetup{labelformat=empty}
+            \caption{Figure from \cite{eastham_geos-chem_2018}}
+        \end{figure}
+    \end{minipage}
+    \begin{minipage}[c]{0.49\textwidth}
+        \begin{figure}
+            \centering
+            \includegraphics[width=\textwidth]{species-scale.eps}
+            \captionsetup{labelformat=empty}
+            \caption{Figure from \cite{wallace_atmospheric_2006} overlaid \\ with cube-sphere resolutions.}
+        \end{figure}
+    \end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Nested simulations}
     \begin{itemize}
         \item GC Classic has the option to run nested simulations
     \end{itemize}
@@ -598,21 +655,28 @@
         \hline
         \textbf{Nested Resolution} & \textbf{CS equiv.} &  \textbf{Available Regions} & \textbf{Total wall time} \\ 
         \hline
-        0.5$^{\circ}$x0.625$^{\circ}$ & C180e & AS, EU, NA & About 2x longer \\ 
-        0.25$^{\circ}$x0.3125$^{\circ}$ & C360e & CH, EU, NA & About 2-4x longer \\ 
+        0.5$^{\circ}$x0.625$^{\circ}$ & C180e & AS, EU, NA & About 2x longer* \\ 
+        0.25$^{\circ}$x0.3125$^{\circ}$ & C360e & CH, EU, NA & About 2-4x longer* \\ 
         \hline
+        \multicolumn{4}{r}{\tiny\textit{*Relative to a global $2 \times 2.5$ simulation.}} \\ 
     \end{tabular}
     \end{table}
-    \vfill
     \normalsize
     \begin{itemize}
         \item Nested simulations are common
+    \end{itemize}
+    \vfill
+    \begin{itemize}
         \item GCHP doesn't support nested simulations (yet)
-        \item GCHP 13.0.0 will support stretched-grid simulations (analogous to nested simulations)
+        \vspace{0.3cm}
+        \item GCHP 13.0.0 will support stretched-grid simulations
     \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Nested simulation analog for GCHP: Stretched-grid support}
+\subsection{Stretched-grid}
+\frame{\sectionpage}
+
+\begin{frame}[fragile]{Nested simulation analog for GCHP: stretched-grid support}
     \begin{minipage}[c]{0.5\textwidth}
         \footnotesize
         \begin{itemize}
@@ -648,7 +712,7 @@
     \end{minipage}
 \end{frame}
 
-\begin{frame}{Next steps}
+\begin{frame}{Next steps: investigating grid stretching}
     \vspace{0.4cm}
     \footnotesize
     \textbf{Planned Simulations}
@@ -695,8 +759,38 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}[allowframebreaks]{References}
+\begin{frame}{Next steps: RIS cluster status}
+    \begin{itemize}
+        \item I can connect to \texttt{compute1-client-1.ris.wustl.edu}
+        \vspace{0.4cm}
+        \item Globus transfer from Compute Canada is almost finished
+        \vspace{0.4cm}
+        \item Good progress on containers for ACAG
+        \begin{itemize}
+            \footnotesize
+            \vspace{0.1cm}
+            \item Interactive container
+            \vspace{0.1cm}
+            \item Official release containers
+            \vspace{0.1cm}
+            \item Experiment pipeline
+        \end{itemize}
+        \vspace{0.4cm}
+        \item Probably a couple weeks to being operational
+        \vspace{0.4cm}
+        \item Hoping to start a $2^\circ \times 2.5^\circ$ spin up this week
+    \end{itemize}
+\end{frame}
 
+\begin{frame}{}
+  \centering \Large
+  \emph{Thank you!}
+\end{frame}
+
+\begin{frame}[allowframebreaks]{References}
+    \nocite{geos-chem_developers_narrative_2019}
+    \nocite{geos-chem_developers_boundary_2019}
+    \tiny
   \bibliography{bib}
   
   %\bibliographystyle{abbrv}
